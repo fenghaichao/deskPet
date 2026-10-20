@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 release/
+release*/
 
 # Logs
 *.log
