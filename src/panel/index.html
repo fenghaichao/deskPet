@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Mochi 控制面板</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div id="app">
+    <div class="titlebar">
+      <h1>Mochi 控制面板</h1>
+      <div class="close" id="close-btn">×</div>
+    </div>
+    <div class="main">
+      <div class="sidebar">
+        <div class="tab active" data-target="tab-pomo">⏱ 番茄钟</div>
+        <div class="tab" data-target="tab-grip">💪 握力训练</div>
+        <div class="tab" data-target="tab-reminder">🔔 提醒</div>
+        <div class="tab" data-target="tab-chat">💬 聊天</div>
+        <div class="tab" data-target="tab-stats">📊 统计</div>
+        <div class="tab" data-target="tab-settings">⚙ 设置</div>
+      </div>
+      <div class="content">
+        <!-- 番茄钟 -->
+        <div class="section active" id="tab-pomo">
+          <h2>番茄钟</h2>
+          <div class="timer-display" id="pomo-time">25:00</div>
+          <div class="timer-label" id="pomo-label">准备开始</div>
+          <div class="btn-group">
+            <button class="btn btn-primary" id="pomo-start">开始</button>
+            <button class="btn btn-secondary" id="pomo-pause" style="display:none">暂停</button>
+            <button class="btn btn-danger" id="pomo-stop" style="display:none">停止</button>
+          </div>
+          <div class="form-row"><label>专注时长</label><input type="number" id="pomo-focus" value="25" min="1" max="120"> 分钟</div>
+          <div class="form-row"><label>短休息</label><input type="number" id="pomo-break" value="5" min="1" max="60"> 分钟</div>
+          <div class="form-row"><label>长休息</label><input type="number" id="pomo-long" value="15" min="1" max="120"> 分钟</div>
+          <div class="form-row"><label>轮数</label><input type="number" id="pomo-rounds" value="4" min="1" max="12"> 轮</div>
+        </div>
+
+        <!-- 握力训练 -->
+        <div class="section" id="tab-grip">
+          <h2>握力抗阻训练</h2>
+          <div class="timer-display" id="grip-time">0s</div>
+          <div class="timer-label" id="grip-label">准备开始</div>
+          <div class="btn-group">
+            <button class="btn btn-primary" id="grip-start">开始</button>
+            <button class="btn btn-secondary" id="grip-pause" style="display:none">暂停</button>
+            <button class="btn btn-danger" id="grip-stop" style="display:none">停止</button>
+          </div>
+          <div class="form-row"><label>握持时长</label><input type="number" id="grip-hold" value="5" min="1" max="60"> 秒</div>
+          <div class="form-row"><label>放松时长</label><input type="number" id="grip-relax" value="5" min="1" max="60"> 秒</div>
+          <div class="form-row"><label>组数</label><input type="number" id="grip-sets" value="10" min="1" max="50"> 组</div>
+          <div class="form-row"><label>每日目标</label><input type="number" id="grip-goal" value="30" min="1" max="200"> 组</div>
+          <h3>最近训练记录</h3>
+          <div id="grip-logs"></div>
+        </div>
+
+        <!-- 提醒 -->
+        <div class="section" id="tab-reminder">
+          <h2>定时提醒</h2>
+          <div class="form-row"><label>时间</label><input type="time" id="reminder-time"></div>
+          <div class="form-row"><label>内容</label><input type="text" id="reminder-text" placeholder="喝杯水、站起来活动一下..."></div>
+          <div class="btn-group" style="justify-content:flex-start;margin-left:112px">
+            <button class="btn btn-primary" id="add-reminder">添加</button>
+          </div>
+          <div id="reminder-list" style="margin-top:16px"></div>
+        </div>
+
+        <!-- 聊天 -->
+        <div class="section" id="tab-chat">
+          <h2>和 Mochi 聊天</h2>
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-input">
+            <input type="text" id="chat-input" placeholder="想对 Mochi 说什么？">
+            <button class="btn btn-primary" id="chat-send">发送</button>
+          </div>
+        </div>
+
+        <!-- 统计 -->
+        <div class="section" id="tab-stats">
+          <h2>统计数据</h2>
+          <div class="stats-grid">
+            <div class="stat-card"><div class="value" id="stat-pokes">0</div><div class="label">点击次数</div></div>
+            <div class="stat-card"><div class="value" id="stat-focus">0</div><div class="label">专注分钟</div></div>
+            <div class="stat-card"><div class="value" id="stat-grip">0</div><div class="label">训练组数</div></div>
+          </div>
+        </div>
+
+        <!-- 设置 -->
+        <div class="section" id="tab-settings">
+          <h2>设置</h2>
+          <div class="form-row"><label>宠物名字</label><input type="text" id="pet-name" value="Mochi"></div>
+          <div class="form-row"><label>API 地址</label><input type="text" id="llm-url" placeholder="https://api.openai.com/v1"></div>
+          <div class="form-row"><label>API Key</label><input type="password" id="llm-key" placeholder="sk-..."></div>
+          <div class="form-row"><label>模型</label><input type="text" id="llm-model" value="gpt-4o-mini"></div>
+          <div class="form-row"><label>人设</label><textarea id="llm-persona" placeholder="系统提示词..."></textarea></div>
+          <div class="form-row"><label>音效</label><input type="checkbox" id="sound-on" checked></div>
+          <div class="form-row"><label>开机自启</label><input type="checkbox" id="auto-launch"></div>
+          <div class="btn-group" style="justify-content:flex-start;margin-left:112px;margin-top:16px">
+            <button class="btn btn-primary" id="save-settings">保存设置</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="panel.js"></script>
+</body>
+</html>
