@@ -22,7 +22,9 @@
 
 ## 安装（直接用）
 
-1. 到 [Releases](https://github.com/fenghaichao/deskPet/releases/latest) 下载 `Mochi Setup 1.1.0.exe`（约 78 MB，NSIS 安装包）。
+1. 到 [Releases](https://github.com/fenghaichao/deskPet/releases/latest) 下载 `Mochi.Setup.1.1.0.exe`（约 78 MB，NSIS 安装包；GitHub 会把文件名里的空格转成点）。
+   直链：<https://github.com/fenghaichao/deskPet/releases/download/v1.1.0/Mochi.Setup.1.1.0.exe>
+   SHA-256：`21cc2f8ab1be851c88c1e2600f03828305d5397cc1594c08d668dd8944e4713c`
 2. 双击安装。安装目录可以自己改，装完桌面会有「Mochi」快捷方式。
 3. Windows 可能弹一次 SmartScreen「Windows 保护了你的电脑」——这个项目**没有代码签名**，点「更多信息 → 仍要运行」就行。
 4. 启动后猫在屏幕右下角、脚贴在任务栏上。右键猫＝控制面板，托盘图标＝全部菜单，退出走托盘的「❌ 退出」（关面板、关窗口都不会退出程序）。
