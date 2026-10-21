@@ -34,6 +34,14 @@ const DEFAULTS = {
     rounds: 4
   },
   grip: {
+    // mode: 'ihg' = 降压等长握力（默认）；'endurance' = 原来的反复挤压循环
+    mode: 'ihg',
+    // 两种模式各自一套参数，互不覆盖：ihg 用秒级的 *Hold/*Rest，耐力循环沿用旧的 hold/relax/sets
+    ihgHold: 120,
+    ihgRest: 90,
+    ihgSets: 4,
+    intensity: 3, // 自觉用力 0-10，3 分约等于 30% 最大握力
+    weeklyCap: 3,
     hold: 5,
     relax: 5,
     sets: 10,

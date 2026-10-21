@@ -41,7 +41,8 @@ contextBridge.exposeInMainWorld('api', {
   timerStopPomo: () => ipcRenderer.send('timer:stop-pomo'),
   timerPomoState: () => ipcRenderer.invoke('timer:pomo-state'),
 
-  timerStartGrip: (opts) => ipcRenderer.send('timer:start-grip', opts),
+  timerStartGrip: (opts) => ipcRenderer.invoke('timer:start-grip', opts),
+  gripSchedule: () => ipcRenderer.invoke('grip:schedule'),
   timerPauseGrip: () => ipcRenderer.send('timer:pause-grip'),
   timerResumeGrip: () => ipcRenderer.send('timer:resume-grip'),
   timerStopGrip: () => ipcRenderer.send('timer:stop-grip'),

@@ -1,11 +1,13 @@
 'use strict'
 
+const { IHG, handForSet } = require('./gripSchedule')
+
 class TimerEngine {
   constructor(handlers) {
     this.cb = handlers
     this.pomo = { active: false, paused: false, phase: 'focus', round: 1, rounds: 4, remain: 0, total: 0 }
     this._pomoCfg = { focus: 25 * 60, break: 5 * 60, longBreak: 15 * 60, rounds: 4 }
-    this.grip = { active: false, paused: false, phase: 'hold', setCurrent: 0, sets: 0, remain: 0, total: 0, hold: 5, relax: 5 }
+    this.grip = { active: false, paused: false, phase: 'hold', setCurrent: 0, sets: 0, remain: 0, total: 0, hold: 5, relax: 5, mode: 'endurance', hand: null, intensity: null }
     this.reminders = []
     this.firedToday = new Set()
     this.lastDate = this.todayKey()
@@ -115,10 +117,25 @@ class TimerEngine {
   }
 
   startGrip(opts) {
-    const hold = opts?.hold ?? 5
-    const relax = opts?.relax ?? 5
-    const sets = opts?.sets ?? 10
-    this.grip = { active: true, paused: false, phase: 'hold', setCurrent: 1, sets, remain: hold, total: hold, hold, relax }
+    const mode = opts?.mode === 'ihg' ? 'ihg' : 'endurance'
+    // 降压模式用文献处方做默认值：握 120 秒 / 歇 90 秒 / 4 组左右手交替
+    const hold = opts?.hold ?? (mode === 'ihg' ? IHG.hold : 5)
+    const relax = opts?.relax ?? (mode === 'ihg' ? IHG.rest : 5)
+    const sets = opts?.sets ?? (mode === 'ihg' ? IHG.sets : 10)
+    this.grip = {
+      active: true,
+      paused: false,
+      phase: 'hold',
+      setCurrent: 1,
+      sets,
+      remain: hold,
+      total: hold,
+      hold,
+      relax,
+      mode,
+      hand: mode === 'ihg' ? handForSet(1) : null,
+      intensity: opts?.intensity ?? (mode === 'ihg' ? IHG.intensity : null)
+    }
     if (this.cb.onTick) this.cb.onTick({ type: 'grip', ...this.grip })
     if (this.cb.onGripPhase) this.cb.onGripPhase({ ...this.grip, newPhase: true })
   }
@@ -130,11 +147,13 @@ class TimerEngine {
       this.grip.remain = this.grip.relax
     } else {
       if (this.grip.setCurrent >= this.grip.sets) {
+        const finished = { ...this.grip } // stopGrip 会清空这些字段，先留快照
         this.stopGrip()
-        if (this.cb.onGripDone) this.cb.onGripDone({ ...this.grip, completed: true })
+        if (this.cb.onGripDone) this.cb.onGripDone({ ...finished, completed: true })
         return
       }
       this.grip.setCurrent += 1
+      if (this.grip.mode === 'ihg') this.grip.hand = handForSet(this.grip.setCurrent)
       this.grip.phase = 'hold'
       this.grip.total = this.grip.hold
       this.grip.remain = this.grip.hold
@@ -151,7 +170,7 @@ class TimerEngine {
   }
 
   stopGrip() {
-    this.grip = { active: false, paused: false, phase: 'hold', setCurrent: 0, sets: 0, remain: 0, total: 0, hold: 5, relax: 5 }
+    this.grip = { active: false, paused: false, phase: 'hold', setCurrent: 0, sets: 0, remain: 0, total: 0, hold: 5, relax: 5, mode: 'endurance', hand: null, intensity: null }
   }
 
   getGripState() {

@@ -1,6 +1,15 @@
 /* draw.js - Canvas procedural pet drawing */
 
-function drawPet(ctx, s, W, H) {
+function drawPet(ctx, s, W, H, scale, groundY) {
+  // 锚点取"着地线"（PET_GROUND_Y）而不是窗口底边：缩小后脚仍然踩在同一条线上，
+  // 窗口底边到着地线之间那 40px 是被任务栏盖住的余量。
+  const k = Math.max(0.2, Math.min(1.6, scale || 1))
+  const gy = Number.isFinite(groundY) ? groundY : H
+  ctx.save()
+  ctx.translate(W / 2, gy)
+  ctx.scale(k, k)
+  ctx.translate(-W / 2, -gy)
+
   const cx = W / 2
   const cy = H - 118
   const bw = 150 * s.bodyScaleX
@@ -26,14 +35,15 @@ function drawPet(ctx, s, W, H) {
   drawEar(ctx, -bw * 0.3, -bh * 0.52, s.earL)
   drawEar(ctx, bw * 0.3, -bh * 0.52, s.earR)
 
-  // paws
-  drawPaw(ctx, -bw * 0.26, bh * 0.40, s.armL)
-  drawPaw(ctx, bw * 0.26, bh * 0.40, s.armR)
+  // paws（降压模式下 gripL/gripR 表示持续轻握的用力程度 0~1）
+  drawPaw(ctx, -bw * 0.26, bh * 0.40, s.armL, s.gripL)
+  drawPaw(ctx, bw * 0.26, bh * 0.40, s.armR, s.gripR)
 
   // face
   drawFace(ctx, 0, -bh * 0.06, s)
 
   ctx.restore()
+  ctx.restore() // 收尾外层缩放变换
 }
 
 function drawTail(ctx, x, y, angle) {
@@ -109,25 +119,27 @@ function drawEar(ctx, x, y, tilt) {
   ctx.restore()
 }
 
-function drawPaw(ctx, x, y, pose) {
+function drawPaw(ctx, x, y, pose, squeeze = 0) {
   ctx.save()
   ctx.translate(x, y)
   let angle = 0
   if (pose === 1) angle = -35
   if (pose === 2) angle = -15
-  ctx.rotate(angle * Math.PI / 180)
+  if (pose === 3) angle = -22 // 降压模式：抬爪持续轻握
+  const sq = Math.max(0, Math.min(1, squeeze || 0))
+  ctx.rotate((angle - sq * 10) * Math.PI / 180)
 
   ctx.beginPath()
-  ctx.ellipse(0, 0, 15, 12, 0, 0, Math.PI * 2)
+  ctx.ellipse(0, 0, 15, 12 - sq * 2.5, 0, 0, Math.PI * 2)
   ctx.fillStyle = '#FFF6EC'
   ctx.fill()
   ctx.lineWidth = 3
   ctx.strokeStyle = '#3B2E28'
   ctx.stroke()
 
-  // paw pad
+  // paw pad（握紧时被压扁）
   ctx.beginPath()
-  ctx.ellipse(0, 2, 6, 4.5, 0, 0, Math.PI * 2)
+  ctx.ellipse(0, 2, 6 + sq * 1.5, 4.5 - sq * 2, 0, 0, Math.PI * 2)
   ctx.fillStyle = '#FFC9CE'
   ctx.fill()
 

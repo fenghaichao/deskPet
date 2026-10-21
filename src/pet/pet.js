@@ -13,6 +13,7 @@ class PetState {
       mouth: 0, blush: 0.5,
       tailAngle: 0,
       armL: 0, armR: 0,
+      gripL: 0, gripR: 0,
       tilt: 0, yOffset: 0,
     }
     this.idleTimer = Math.random() * 4
@@ -75,7 +76,7 @@ class PetState {
 
     // breath
     this.s.breath = Math.sin(this.s.t * 2.5) * 0.5 + 0.5
-    if (this.s.state !== 'drag' && this.s.state !== 'land' && this.s.state !== 'training') {
+    if (this.s.state !== 'drag' && this.s.state !== 'land' && this.s.state !== 'training' && this.s.state !== 'grip') {
       this.s.bodyScaleY = 1 + Math.sin(this.s.t * 2.5) * 0.03
       this.s.bodyScaleX = 1 + Math.cos(this.s.t * 2.5) * 0.015
     }
@@ -94,7 +95,7 @@ class PetState {
     // gaze follow
     if (this.s.state !== 'drag' && this.s.state !== 'sleep') {
       const cx = rect.left + rect.width / 2
-      const cy = rect.top + rect.height * 0.72
+      const cy = rect.top + rect.height * (rect.eyeFrac || 0.72)
       const dx = (mouse.x - cx) / (rect.width / 2)
       const dy = (mouse.y - cy) / (rect.height / 2)
       const maxOff = 7
@@ -148,6 +149,15 @@ class PetState {
       this.s.armR = 2
       this.s.mouth = 2
       this.s.yOffset = Math.sin(this.s.t * 3) * 3
+    }
+
+    // 降压（ihg）姿势：抬爪持续轻握 + 放慢呼吸，示范"别憋气"
+    if (this.s.state === 'grip') {
+      this.s.bodyScaleY = 1 + Math.sin(this.s.t * 1.0) * 0.05
+      this.s.bodyScaleX = 1 + Math.cos(this.s.t * 1.0) * 0.022
+      this.s.yOffset = Math.sin(this.s.t * 1.0) * 1.5
+      this.s.mouth = 1
+      this.s.tailAngle = Math.sin(this.s.t * 0.8) * 6
     }
 
     this.updateAnims()
@@ -212,6 +222,9 @@ class PetState {
       this.s.armL = 2
       this.s.armR = 2
       this.s.mouth = 2
+    } else if (st === 'grip') {
+      this.s.mouth = 1
+      this.s.blush = 0.5
     } else if (st === 'talk') {
       this.s.mouth = 1
     } else if (st === 'idle') {
@@ -219,6 +232,8 @@ class PetState {
       this.s.blush = 0.5
       this.s.armL = 0
       this.s.armR = 0
+      this.s.gripL = 0
+      this.s.gripR = 0
       this.s.yOffset = 0
       this.s.tilt = 0
     } else if (st === 'land') {
@@ -238,6 +253,7 @@ class PetState {
 const canvas = document.getElementById('pet-canvas')
 const ctx = canvas.getContext('2d')
 const W = 360, H = 440
+const GROUND_Y = 400 // 着地线（与主进程 PET_GROUND_Y 一致），缩放的锚点
 const dpr = window.devicePixelRatio || 1
 canvas.width = W * dpr
 canvas.height = H * dpr
@@ -252,13 +268,26 @@ let bubbleEl = document.getElementById('bubble')
 let bubbleText = document.getElementById('bubble-text')
 let bubbleTimer = null
 let typeTimer = null
+let petScale = 1
+
+// 缩放只作用于猫本身；字号不动，气泡锚点跟着猫头走
+function applyPetScale(v) {
+  const k = Number(v)
+  petScale = Number.isFinite(k) ? Math.max(0.2, Math.min(1.6, k)) : 1
+  document.documentElement.style.setProperty('--pet-scale', String(petScale))
+}
+
+window.api.onConfigInit((e, cfg) => {
+  applyPetScale(cfg && cfg.pet ? cfg.pet.scale : 1)
+})
 
 // ---------- hit tests ----------
 function hitTest(mx, my) {
   const cx = W / 2
-  const cy = H - 118
+  // 与 drawPet 同一个锚点：身体中心 (W/2, H-118) 缩放后落在 400 - 78k
+  const cy = GROUND_Y + ((H - 118) - GROUND_Y) * petScale
   const dx = mx - cx, dy = my - cy
-  return Math.sqrt(dx * dx + dy * dy) < 95
+  return Math.sqrt(dx * dx + dy * dy) < 95 * petScale
 }
 
 function isBubbleHit(ex, ey) {
@@ -330,11 +359,47 @@ window.api.onPetPomoDone((e, data) => {
   state.setState('happy')
 })
 window.api.onPetGripPhase((e, data) => {
+  if (data.mode === 'ihg') {
+    if (data.phase === 'hold') {
+      const hand = data.hand === 'right' ? '右手' : '左手'
+      showBubble(`第 ${data.setCurrent}/${data.sets} 组：${hand}握紧 ${(data.hold / 60).toFixed(1)} 分钟，三分力就好`)
+      state.setState('grip')
+      state.s.armL = data.hand === 'left' ? 3 : 0
+      state.s.armR = data.hand === 'right' ? 3 : 0
+    } else {
+      showBubble('松开歇一下，甩甩手～')
+      state.setState('idle')
+    }
+    return
+  }
   showBubble(data.phase === 'hold' ? `第${data.setCurrent}组，握紧！` : '放松～')
   state.setState('training')
 })
+
+window.api.onPetGripTick((e, data) => {
+  if (!data || !data.active || data.mode !== 'ihg' || data.phase !== 'hold') {
+    state.s.gripL = 0
+    state.s.gripR = 0
+    return
+  }
+  const total = data.total || 1
+  const elapsed = total - data.remain
+  const ramp = Math.min(1, elapsed / Math.max(1, total * 0.12)) // 开头十几秒慢慢加力
+  const level = Math.min(1, 0.55 * (((data.intensity ?? 3) / 3))) // 三分力 ≈ 0.55
+  state.s.gripL = data.hand === 'right' ? 0 : level * ramp
+  state.s.gripR = data.hand === 'left' ? 0 : level * ramp
+})
+
 window.api.onPetGripDone((e, data) => {
-  showBubble('训练完成！你好棒～')
+  state.s.gripL = 0
+  state.s.gripR = 0
+  state.s.armL = 0
+  state.s.armR = 0
+  showBubble(
+    data && data.mode === 'ihg'
+      ? `这轮完成！本周 ${data.weekUsed}/${data.weekCap} 次，去测个血压吧`
+      : '训练完成！你好棒～'
+  )
   state.setState('happy')
 })
 window.api.onPetReminder((e, r) => {
@@ -399,10 +464,13 @@ function frame(now) {
   const dt = Math.min((now - lastT) / 1000, 0.05)
   lastT = now
   const rect = canvas.getBoundingClientRect()
-  const s = state.update(dt, mouse, { left: rect.left, top: rect.top, width: rect.width, height: rect.height })
+  // 视线跟踪的锚点（原设计在窗口高度 72% 处）按同一个锚点换算
+  const eyeY = GROUND_Y + ((H * 0.72) - GROUND_Y) * petScale
+  const eyeFrac = eyeY / H
+  const s = state.update(dt, mouse, { left: rect.left, top: rect.top, width: rect.width, height: rect.height, eyeFrac })
 
   ctx.clearRect(0, 0, W, H)
-  drawPet(ctx, s, W, H)
+  drawPet(ctx, s, W, H, petScale, GROUND_Y)
 
   requestAnimationFrame(frame)
 }

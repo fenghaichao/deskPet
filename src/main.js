@@ -5,6 +5,7 @@ const path = require('path')
 const { Store } = require('./store')
 const { TimerEngine } = require('./timer')
 const { placePanel } = require('./placement')
+const { IHG, weekKey, ihgQuota } = require('./gripSchedule')
 
 const isDev = process.argv.includes('--dev')
 const PET_W = 360
@@ -24,6 +25,7 @@ let lastPomoState = null
 let lastGripState = null
 let lastAutoPanelPos = null // 程序自动摆放的坐标，用来区分「用户拖动」
 let savePanelPosTimer = null
+let breathCueSet = 0 // 降压模式里「别憋气」提示，每组只提一次
 
 // ---------- single instance ----------
 if (!app.requestSingleInstanceLock()) {
@@ -364,9 +366,50 @@ function quitApp() {
   app.quit()
 }
 
+// ---------- grip 参数与提示 ----------
+function clampNum(v, def, lo, hi) {
+  const n = Number(v)
+  if (!Number.isFinite(n) || v === '' || v === null || v === undefined) return def
+  return Math.min(hi, Math.max(lo, Math.round(n)))
+}
+
+// 以配置为准（面板只报模式），并给两种模式各自的取值范围
+function resolveGripParams(opts) {
+  const mode = opts && opts.mode === 'endurance' ? 'endurance' : 'ihg'
+  if (mode === 'endurance') {
+    return {
+      mode,
+      hold: clampNum(store.get('grip.hold'), 5, 1, 60),
+      relax: clampNum(store.get('grip.relax'), 5, 1, 60),
+      sets: clampNum(store.get('grip.sets'), 10, 1, 50)
+    }
+  }
+  return {
+    mode,
+    hold: clampNum(store.get('grip.ihgHold'), IHG.hold, 30, 180),
+    relax: clampNum(store.get('grip.ihgRest'), IHG.rest, 30, 180),
+    sets: clampNum(store.get('grip.ihgSets'), IHG.sets, 2, 8),
+    intensity: clampNum(store.get('grip.intensity'), IHG.intensity, 1, 10)
+  }
+}
+
+function bubble(text) {
+  if (petWin && !petWin.isDestroyed()) petWin.webContents.send('pet:bubble', text)
+}
+
+function gripHandName(hand) {
+  return hand === 'left' ? '左手' : hand === 'right' ? '右手' : ''
+}
+
 // ---------- IPC ----------
 ipcMain.handle('config:get', (e, key) => store ? store.get(key) : undefined)
-ipcMain.handle('config:set', (e, key, value) => store ? store.set(key, value) : undefined)
+ipcMain.handle('config:set', (e, key, value) => {
+  if (!store) return undefined
+  const v = store.set(key, value)
+  // 推最新配置给宠物窗口：大小、名字这类改完立刻可见，不必重启
+  if (petWin && !petWin.isDestroyed()) petWin.webContents.send('config:init', store.get())
+  return v
+})
 ipcMain.handle('config:all', () => store ? store.get() : {})
 
 ipcMain.on('pet:hover', (e, hit) => {
@@ -406,9 +449,19 @@ ipcMain.on('timer:resume-pomo', () => { if (timer) timer.resumePomodoro() })
 ipcMain.on('timer:stop-pomo', () => { if (timer) timer.stopPomodoro() })
 ipcMain.handle('timer:pomo-state', () => timer ? timer.getPomodoroState() : {})
 
-ipcMain.on('timer:start-grip', (e, opts) => {
-  if (timer) timer.startGrip(opts)
+ipcMain.handle('timer:start-grip', (e, opts) => {
+  if (!store || !timer) return { ok: false, reason: 'Mochi 还没准备好' }
+  const p = resolveGripParams(opts)
+  if (p.mode === 'ihg') {
+    const q = ihgQuota(store.get('gripLogs') || [], new Date())
+    if (!q.ok) return { ok: false, ...q }
+  }
+  breathCueSet = 0
+  timer.startGrip(p)
+  return { ok: true, params: p, quota: ihgQuota(store.get('gripLogs') || [], new Date()) }
 })
+
+ipcMain.handle('grip:schedule', () => ihgQuota(store ? (store.get('gripLogs') || []) : [], new Date()))
 ipcMain.on('timer:pause-grip', () => { if (timer) timer.pauseGrip() })
 ipcMain.on('timer:resume-grip', () => { if (timer) timer.resumeGrip() })
 ipcMain.on('timer:stop-grip', () => { if (timer) timer.stopGrip() })
@@ -477,8 +530,16 @@ app.whenReady().then(() => {
         panelWin.webContents.send('timer:tick', data)
       }
       if (petWin && !petWin.isDestroyed()) {
-        if (data.type === 'grip') petWin.webContents.send('pet:grip-tick', data)
-        else if (data.type === 'pomo') petWin.webContents.send('pet:pomo-tick', data)
+        if (data.type === 'grip') {
+          petWin.webContents.send('pet:grip-tick', data)
+          // 降压模式：每组还剩 10 秒时提醒呼吸，这是高血压人群最大的风险点
+          if (data.mode === 'ihg' && data.phase === 'hold' && data.remain === 10 && breathCueSet !== data.setCurrent) {
+            breathCueSet = data.setCurrent
+            bubble('还剩 10 秒 · 慢慢吐气，千万别憋气')
+          }
+        } else if (data.type === 'pomo') {
+          petWin.webContents.send('pet:pomo-tick', data)
+        }
       }
     },
     onPomoDone: (data) => {
@@ -494,22 +555,42 @@ app.whenReady().then(() => {
       refreshTray()
     },
     onGripPhase: (data) => {
-      const msg = data.phase === 'hold' ? `第 ${data.setCurrent}/${data.sets} 组：握紧！` : '放松～'
+      let msg
+      if (data.mode === 'ihg') {
+        msg = data.phase === 'hold'
+          ? `第 ${data.setCurrent}/${data.sets} 组：${gripHandName(data.hand)}持续握紧 ${(data.hold / 60).toFixed(1)} 分钟，约三分力`
+          : `松开休息 ${data.relax} 秒，甩甩手`
+      } else {
+        msg = data.phase === 'hold' ? `第 ${data.setCurrent}/${data.sets} 组：握紧！` : '放松～'
+      }
       notify(msg, '握力训练')
       if (petWin && !petWin.isDestroyed()) petWin.webContents.send('pet:grip-phase', data)
       if (panelWin && !panelWin.isDestroyed()) panelWin.webContents.send('timer:grip-phase', data)
     },
     onGripDone: (data) => {
-      notify('握力训练完成！', '握力训练')
-      if (petWin && !petWin.isDestroyed()) petWin.webContents.send('pet:grip-done', data)
-      if (panelWin && !panelWin.isDestroyed()) panelWin.webContents.send('timer:grip-done', data)
       if (store) {
         const logs = store.get('gripLogs') || []
-        logs.unshift({ date: new Date().toISOString(), sets: data.sets, hold: data.hold, relax: data.relax })
+        logs.unshift({
+          date: new Date().toISOString(),
+          week: weekKey(new Date()),
+          mode: data.mode || 'endurance',
+          sets: data.sets,
+          hold: data.hold,
+          relax: data.relax,
+          intensity: data.intensity ?? null
+        })
         if (logs.length > 365) logs.length = 365
         store.set('gripLogs', logs)
-        store.set('stats.gripSets', (store.get('stats.gripSets') || 0) + data.sets)
+        store.set('stats.gripSets', (store.get('stats.gripSets') || 0) + (data.sets || 0))
       }
+      const quota = ihgQuota(store ? (store.get('gripLogs') || []) : [], new Date())
+      notify(
+        data.mode === 'ihg' ? `降压握力完成 · 本周 ${quota.used}/${quota.cap} 次` : '握力训练完成！',
+        '握力训练'
+      )
+      const enriched = { ...data, weekUsed: quota.used, weekCap: quota.cap }
+      if (petWin && !petWin.isDestroyed()) petWin.webContents.send('pet:grip-done', enriched)
+      if (panelWin && !panelWin.isDestroyed()) panelWin.webContents.send('timer:grip-done', enriched)
       refreshTray()
     },
     onReminder: (r) => {

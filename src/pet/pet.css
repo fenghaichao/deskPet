@@ -20,7 +20,8 @@ html, body {
 
 #bubble {
   position: absolute;
-  bottom: 255px;
+  /* 贴着猫头顶（锚点=着地线）：scale=1 时为 255px，与原设计一致；缩小后气泡随之下降，不会飘在半空 */
+  bottom: calc(60px + 195px * var(--pet-scale, 1));
   left: 50%;
   transform: translateX(-50%) translateY(8px);
   max-width: 260px;

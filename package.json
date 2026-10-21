@@ -10,7 +10,8 @@
     "dev": "node launcher.js --dev",
     "dist": "electron-builder --win --x64",
     "pack": "electron-builder --win --dir",
-    "test": "node test/placement.test.js"
+    "test": "node test/placement.test.js && node test/grip-ihg.test.js && node test/main-grip-ipc.test.js",
+    "test:gui": "node tools/e2e-grip.js && node tools/e2e-pet-size.js"
   },
   "devDependencies": {
     "electron": "^33.2.0",

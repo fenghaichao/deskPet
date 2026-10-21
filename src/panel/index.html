@@ -39,7 +39,11 @@
 
         <!-- 握力训练 -->
         <div class="section" id="tab-grip">
-          <h2>握力抗阻训练</h2>
+          <h2>握力训练</h2>
+          <div class="seg" id="grip-mode">
+            <button class="seg-btn active" data-mode="ihg">降压模式（等长握力）</button>
+            <button class="seg-btn" data-mode="endurance">耐力循环</button>
+          </div>
           <div class="timer-display" id="grip-time">0s</div>
           <div class="timer-label" id="grip-label">准备开始</div>
           <div class="btn-group">
@@ -47,10 +51,28 @@
             <button class="btn btn-secondary" id="grip-pause" style="display:none">暂停</button>
             <button class="btn btn-danger" id="grip-stop" style="display:none">停止</button>
           </div>
-          <div class="form-row"><label>握持时长</label><input type="number" id="grip-hold" value="5" min="1" max="60"> 秒</div>
-          <div class="form-row"><label>放松时长</label><input type="number" id="grip-relax" value="5" min="1" max="60"> 秒</div>
-          <div class="form-row"><label>组数</label><input type="number" id="grip-sets" value="10" min="1" max="50"> 组</div>
-          <div class="form-row"><label>每日目标</label><input type="number" id="grip-goal" value="30" min="1" max="200"> 组</div>
+
+          <div id="grip-ihg-panel">
+            <div class="quota" id="grip-quota">本周 0/3 次</div>
+            <div class="form-row"><label>持续握</label><input type="number" id="grip-ihg-hold" value="120" min="30" max="180"> 秒</div>
+            <div class="form-row"><label>组间休息</label><input type="number" id="grip-ihg-rest" value="90" min="30" max="180"> 秒</div>
+            <div class="form-row"><label>组数</label><input type="number" id="grip-ihg-sets" value="4" min="2" max="8"> 组 · 左右手交替</div>
+            <div class="form-row"><label>自觉用力</label><input type="number" id="grip-intensity" value="3" min="1" max="10"> / 10 分（3 分≈三成力，能撑满不发抖）</div>
+            <div class="safety">
+              <div>· 全程不要憋气：握紧时慢慢吐气，能正常说话才算力度对了</div>
+              <div>· 血压 ≥180/110、不稳定心绞痛、严重心衰：先问医生，别自己练</div>
+              <div>· 隔天练，一周最多 3 次（练得更勤，降压效果反而更差）</div>
+              <div>· 至少 8 周才看得到静息血压变化；不能替代降压药，别自行停药</div>
+            </div>
+          </div>
+
+          <div id="grip-endurance-panel" style="display:none">
+            <div class="form-row"><label>握持时长</label><input type="number" id="grip-hold" value="5" min="1" max="60"> 秒</div>
+            <div class="form-row"><label>放松时长</label><input type="number" id="grip-relax" value="5" min="1" max="60"> 秒</div>
+            <div class="form-row"><label>组数</label><input type="number" id="grip-sets" value="10" min="1" max="50"> 组</div>
+            <div class="form-row"><label>每日目标</label><input type="number" id="grip-goal" value="30" min="1" max="200"> 组</div>
+          </div>
+
           <h3>最近训练记录</h3>
           <div id="grip-logs"></div>
         </div>
@@ -83,6 +105,7 @@
             <div class="stat-card"><div class="value" id="stat-pokes">0</div><div class="label">点击次数</div></div>
             <div class="stat-card"><div class="value" id="stat-focus">0</div><div class="label">专注分钟</div></div>
             <div class="stat-card"><div class="value" id="stat-grip">0</div><div class="label">训练组数</div></div>
+            <div class="stat-card"><div class="value" id="stat-ihg">0/3</div><div class="label">本周降压次数</div></div>
           </div>
         </div>
 
@@ -90,6 +113,14 @@
         <div class="section" id="tab-settings">
           <h2>设置</h2>
           <div class="form-row"><label>宠物名字</label><input type="text" id="pet-name" value="Mochi"></div>
+          <div class="form-row"><label>宠物大小</label>
+            <select id="pet-scale">
+              <option value="0.5">小（原来的一半）</option>
+              <option value="0.75">偏小</option>
+              <option value="1">标准</option>
+              <option value="1.25">大</option>
+            </select>
+          </div>
           <div class="form-row"><label>API 地址</label><input type="text" id="llm-url" placeholder="https://api.openai.com/v1"></div>
           <div class="form-row"><label>API Key</label><input type="password" id="llm-key" placeholder="sk-..."></div>
           <div class="form-row"><label>模型</label><input type="text" id="llm-model" value="gpt-4o-mini"></div>
