@@ -10,6 +10,11 @@ const DEFAULTS = {
     scale: 1,
     name: 'Mochi'
   },
+  // 控制面板位置：用户拖动过就记住，没拖过则每次按宠物位置自动摆放
+  panel: {
+    x: null,
+    y: null
+  },
   ui: {
     sound: true,
     alwaysOnTop: true,

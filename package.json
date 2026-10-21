@@ -9,7 +9,8 @@
     "start": "node launcher.js",
     "dev": "node launcher.js --dev",
     "dist": "electron-builder --win --x64",
-    "pack": "electron-builder --win --dir"
+    "pack": "electron-builder --win --dir",
+    "test": "node test/placement.test.js"
   },
   "devDependencies": {
     "electron": "^33.2.0",

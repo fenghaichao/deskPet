@@ -4,6 +4,7 @@ const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, Notificati
 const path = require('path')
 const { Store } = require('./store')
 const { TimerEngine } = require('./timer')
+const { placePanel } = require('./placement')
 
 const isDev = process.argv.includes('--dev')
 const PET_W = 360
@@ -21,6 +22,8 @@ let drag = null
 let petHover = false
 let lastPomoState = null
 let lastGripState = null
+let lastAutoPanelPos = null // 程序自动摆放的坐标，用来区分「用户拖动」
+let savePanelPosTimer = null
 
 // ---------- single instance ----------
 if (!app.requestSingleInstanceLock()) {
@@ -244,6 +247,9 @@ function createPanelWindow() {
 
   panelWin.on('closed', () => { panelWin = null })
 
+  panelWin.on('moved', () => rememberPanelPos())
+  panelWin.on('resized', () => rememberPanelPos())
+
   panelWin.webContents.on('did-finish-load', () => {
     if (store) panelWin.webContents.send('config:init', store.get())
     if (timer) {
@@ -278,21 +284,55 @@ function togglePet() {
   else petWin.showInactive()
 }
 
+function isFullyOnScreen(x, y, w, h) {
+  const displays = screen.getAllDisplays()
+  for (const d of displays) {
+    const wa = d.workArea
+    if (x >= wa.x - 1 && y >= wa.y - 1 && x + w <= wa.x + wa.width + 1 && y + h <= wa.y + wa.height + 1) return true
+  }
+  return false
+}
+
 function showPanel() {
   if (!panelWin || panelWin.isDestroyed()) createPanelWindow()
   panelWin.show()
   panelWin.focus()
-  if (petWin) {
-    const [px, py] = petWin.getPosition()
-    const disp = screen.getDisplayNearestPoint({ x: px, y: py })
-    const wa = disp.workArea
-    let x = px - PANEL_W + PET_W + 30
-    if (x < wa.x + 10) x = px - 30
-    if (x + PANEL_W > wa.x + wa.width - 10) x = wa.x + wa.width - PANEL_W - 10
-    let y = py - PANEL_H - 10
-    if (y < wa.y + 10) y = py + PET_H + 10
-    panelWin.setPosition(Math.round(x), Math.round(y))
-  }
+  if (!petWin || petWin.isDestroyed()) return
+
+  const [px, py] = petWin.getPosition()
+  const [petW, petH] = petWin.getSize()
+  // 用窗口实际尺寸而不是常量：面板可以缩放，写死的 PANEL_H 会算错
+  const [panelW, panelH] = panelWin.getSize()
+  const wa = screen.getDisplayNearestPoint({ x: px, y: py }).workArea
+
+  const sx = store ? store.get('panel.x') : null
+  const sy = store ? store.get('panel.y') : null
+  const savedUsable =
+    Number.isFinite(sx) && Number.isFinite(sy) && isFullyOnScreen(sx, sy, panelW, panelH)
+
+  const pos = savedUsable
+    ? { x: Math.round(sx), y: Math.round(sy) }
+    : placePanel({
+        wa,
+        pet: { x: px, y: py, w: petW, h: petH },
+        panel: { w: panelW, h: panelH }
+      })
+
+  lastAutoPanelPos = pos
+  panelWin.setPosition(pos.x, pos.y)
+}
+
+// 用户手动拖动/缩放过的面板位置要记住，别让下一次右键又把它弹走
+function rememberPanelPos() {
+  if (!store) return
+  clearTimeout(savePanelPosTimer)
+  savePanelPosTimer = setTimeout(() => {
+    if (!panelWin || panelWin.isDestroyed()) return
+    const [x, y] = panelWin.getPosition()
+    if (lastAutoPanelPos && Math.abs(x - lastAutoPanelPos.x) < 2 && Math.abs(y - lastAutoPanelPos.y) < 2) return
+    store.set('panel.x', Math.round(x))
+    store.set('panel.y', Math.round(y))
+  }, 250)
 }
 
 function snapToBottom() {
