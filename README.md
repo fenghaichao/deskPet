@@ -39,6 +39,13 @@ npm run dist     # 生成 NSIS 安装包到 release/
 npm run pack     # 仅生成免安装目录
 ```
 
+> 若报 `remove ...\win-unpacked\resources\app.asar: being used by another process`（安全软件扫描锁，
+> 改名也改不掉），换输出目录出包即可，不必重启：
+> `npm run dist -- --config.directories.output=release2`
+> 打包环境还需要清掉注入的代理变量并走国内镜像：
+> `unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy` +
+> `ELECTRON_MIRROR` / `ELECTRON_BUILDER_BINARIES_MIRROR` 指向 npmmirror
+
 ## 交互方式
 
 | 操作 | 效果 |

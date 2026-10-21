@@ -1,6 +1,6 @@
 {
   "name": "deskpet",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Mochi - a Windows desktop pet with focus timer, grip training and AI chat",
   "main": "src/main.js",
   "author": "boco",
