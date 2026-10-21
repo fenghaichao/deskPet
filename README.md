@@ -20,7 +20,17 @@
 - **系统托盘**：显隐宠物、控制番茄钟、贴边、开机自启、退出
 - **点击穿透**：宠物窗口透明区域不挡鼠标操作，只有宠物本体和气泡可交互
 
-## 运行
+## 安装（直接用）
+
+1. 到 [Releases](https://github.com/fenghaichao/deskPet/releases/latest) 下载 `Mochi Setup 1.1.0.exe`（约 78 MB，NSIS 安装包）。
+2. 双击安装。安装目录可以自己改，装完桌面会有「Mochi」快捷方式。
+3. Windows 可能弹一次 SmartScreen「Windows 保护了你的电脑」——这个项目**没有代码签名**，点「更多信息 → 仍要运行」就行。
+4. 启动后猫在屏幕右下角、脚贴在任务栏上。右键猫＝控制面板，托盘图标＝全部菜单，退出走托盘的「❌ 退出」（关面板、关窗口都不会退出程序）。
+5. 升级新版本：建议先卸载旧的（设置 → 应用 → Mochi）再装新的，**配置文件不会被删**，宠物位置、握力记录、LLM 设置都保留。
+
+配置在 `%APPDATA%/deskpet/config.json`（开发版和安装版共用这一份，目录名是 `deskpet` 而不是 `Mochi`）。里面的 LLM API Key 是明文，别提交进仓库、也别外发这个文件。
+
+## 从源码运行
 
 ```bash
 npm install
@@ -92,6 +102,6 @@ deskPet/
 │   ├── pet/             # 宠物窗口（Canvas 绘制 + 状态机 + 气泡）
 │   └── panel/           # 控制面板（番茄钟/训练/提醒/聊天/统计/设置）
 ├── test/                # 无依赖回归测试（npm test）
-├── tools/e2e-grip.js    # Electron + CDP 的端到端冒烟（npm run test:gui）
+├── tools/               # 真起 Electron + CDP 的实机校验（npm run test:gui）
 └── assets/              # 托盘与应用图标
 ```
